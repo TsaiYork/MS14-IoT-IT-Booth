@@ -1,14 +1,75 @@
 //var clientFromConnectionString = require('azure-iot-device-mqtt').clientFromConnectionString;
-//var Message = require('azure-iot-device').Message;
+
 //var configs = require('./configs.js');
 //var connectingString = 'HostName=TemperatureLab.azure-devices.net;DeviceId=Linkit7688;SharedAccessKey=UuedpHhVxcBb7l5AhElnn8fMH9RPtJBqKVu2W153+Gk=';
 //var client = clientFromConnectionString(connectingString);
+const Client = require('azure-iot-device').Client;
+const ConnectionString = require('azure-iot-device').ConnectionString;
+const Message = require('azure-iot-device').Message;
+const Protocol = require('azure-iot-device-amqp').Amqp;
+
+var DeviceID = "IT_Booth_Device";
+var ConString = "HostName=IoThub170821.azure-devices.net;DeviceId=Devices;SharedAccessKey=rXupXcOqLkGuAvmJBIoHl4PtZV/w0vWWQwyQ+a0z6cs=";
 
 var com = require("serialport");
-var serialPort = new com.SerialPort("/dev/ttyS0", {
+var serialport = new com.SerialPort("/dev/ttyS0", {
     baudrate: 9600,
     parser: com.parsers.readline('\r\n')
-  });
+});
+
+var C2D_Cmd;
+var client;
+
+serialport.on('open', function () {
+    console.log('port open...');
+});
+
+function initClient(connectionStringParam) {
+    var connectionString = ConnectionString.parse(connectionStringParam);
+    //var deviceId = connectionString.DeviceId;
+
+    client = Client.fromConnectionString(connectionStringParam, Protocol);
+    return client;
+}
+
+
+
+function receiveMessageCallback(msg) {
+    //    blinkLED();
+    //console.log(msg);
+    C2D_Cmd = JSON.parse(msg.getData());
+    var message = msg.getData().toString('utf-8');
+    client.complete(msg, function(){
+        console.log('Receive message: ' + message);
+    });
+    console.log(C2D_Cmd.Name);
+    console.log(C2D_Cmd.Lock);
+    console.log(C2D_Cmd.R);
+    console.log(C2D_Cmd.G);
+    console.log(C2D_Cmd.B);
+    var data = JSON.stringify(C2D_Cmd);
+    serialport.write(data, function (err) {
+        if (err) {
+            return console.log('error on write: ', err.message);
+        }
+        console.log("sending message: " + data);
+    });
+}
+
+client = initClient(ConString);
+
+client.open(function(err){
+    if (err) {
+        console.error('[IoT hub Client] Connect error: ' + err.message);
+        return;
+    }
+    console.log("client open");
+
+});
+
+client.on('message', receiveMessageCallback);
+
+
 
 //function printResultFor(op) {
 //  return function printResult(err, res) {
@@ -42,7 +103,6 @@ var connectCallback = function (err) {
 //}
 
 
-
 //serialPort.on('data', function(data) {
 //    var jobj = JSON.parse(data);
     
@@ -61,23 +121,8 @@ var connectCallback = function (err) {
 // //   console.log("JSON[HeatIndex]=",jobj.HeatIndex);
 //}); 
 
-var data = JSON.stringify({ deviceId: 'Linkit7688', temperature: 22, humidity: 11, heatIndex: 22, timestamp: 33 });
 
-serialPort.on('open',function() {
-    console.log('Port open...');
-    var count = 1;
-    setInterval(function () {
-        var data = JSON.stringify({ deviceId: 'Linkit7688', temperature: count, humidity: 11, heatIndex: 22, timestamp: 33 });
-        serialPort.write(data, function (err) {
-            if (err) {
-                return console.log('Error on write: ', err.message);
-            }
-            console.log("Sending message: " + data);
-            count += 1;
-        });
-    }, 5000);
 
-});
 
 //client.open(connectCallback);
 
